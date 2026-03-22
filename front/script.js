@@ -299,6 +299,9 @@ botaoProcessar.addEventListener('click', async () => {
     return;
   }
 
+  // Esconde aviso de clamping anterior
+  document.getElementById('avisoClamp').style.display = 'none';
+
   // Mostra overlay de processamento
   const overlay = document.createElement('div');
   overlay.className = 'processing-overlay';
@@ -325,6 +328,17 @@ botaoProcessar.addEventListener('click', async () => {
     const result = await response.json();
 
     if (result.success) {
+      // Exibe aviso de clamping se houver
+      const avisoClamp = document.getElementById('avisoClamp');
+      if (result.warnings && result.warnings.length > 0) {
+        document.getElementById('avisoClampTexto').innerHTML =
+          '<strong>Aviso — clamping aplicado:</strong><br>' +
+          result.warnings.map(w => '• ' + w).join('<br>');
+        avisoClamp.style.display = 'flex';
+      } else {
+        avisoClamp.style.display = 'none';
+      }
+
       // Carrega a imagem processada retornada pelo backend
       const imagemProcessada = new Image();
       imagemProcessada.onload = () => {

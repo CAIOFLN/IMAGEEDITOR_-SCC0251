@@ -147,6 +147,7 @@ def apply_translation(img, new_img, dx, dy):
     print(f"Imagem shape: {img.shape}")
     h, w, _ = img.shape
     m = inv_translation_matrix(dx, dy)
+    clamped = False
     for i in range(h):
         for j in range(w):
             p = np.array([j, i, 1])
@@ -155,9 +156,12 @@ def apply_translation(img, new_img, dx, dy):
             x_new = int(p_new[0])
             y_new = int(p_new[1])
 
-            if 0 <= x_new < w and 0 <= y_new < h:
-                new_img[i, j] = img[y_new, x_new]
-    return new_img
+            if not (0 <= x_new < w and 0 <= y_new < h):
+                clamped = True
+            x_src = np.clip(x_new, 0, w - 1)
+            y_src = np.clip(y_new, 0, h - 1)
+            new_img[i, j] = img[y_src, x_src]
+    return new_img, clamped
 
 def apply_rotation(img, new_img, theta):
     print(f"Aplicando rotação: theta={theta} radianos")
@@ -167,7 +171,8 @@ def apply_rotation(img, new_img, theta):
     cx = (w) / 2
     cy = (h) / 2
     m = inv_translation_matrix(-cx, -cy) @ inv_rot_matrix(theta) @ inv_translation_matrix(cx, cy)
-    
+
+    clamped = False
     for i in range(h):
         for j in range(w):
             p = np.array([j, i, 1])
@@ -176,9 +181,12 @@ def apply_rotation(img, new_img, theta):
             x_new = int(p_new[0])
             y_new = int(p_new[1])
 
-            if 0 <= x_new < w and 0 <= y_new < h:
-                new_img[i, j] = img[y_new, x_new]
-    return new_img
+            if not (0 <= x_new < w and 0 <= y_new < h):
+                clamped = True
+            x_src = np.clip(x_new, 0, w - 1)
+            y_src = np.clip(y_new, 0, h - 1)
+            new_img[i, j] = img[y_src, x_src]
+    return new_img, clamped
 
 def apply_scale(img, new_img, sx, sy):
     print(f"Aplicando escala: sx={sx}, sy={sy}")
@@ -190,7 +198,8 @@ def apply_scale(img, new_img, sx, sy):
 
     # Amplia a imagem em relação ao centro, então a escala é aplicada em relação ao centro
     m = inv_translation_matrix(-cx, -cy) @ inv_scale_matrix(sx, sy) @ inv_translation_matrix(cx, cy)
-    
+
+    clamped = False
     for i in range(h):
         for j in range(w):
             p = np.array([j, i, 1])
@@ -199,50 +208,69 @@ def apply_scale(img, new_img, sx, sy):
             x_new = int(p_new[0])
             y_new = int(p_new[1])
 
-            if 0 <= x_new < w and 0 <= y_new < h:
-                new_img[i, j] = img[y_new, x_new]
+            if not (0 <= x_new < w and 0 <= y_new < h):
+                clamped = True
+            x_src = np.clip(x_new, 0, w - 1)
+            y_src = np.clip(y_new, 0, h - 1)
+            new_img[i, j] = img[y_src, x_src]
 
-    return new_img
+    return new_img, clamped
 
 def transform_image(img, transform_type, params):
     new_img = np.zeros_like(img)
-    print(f"Transformação solicitada: {transform_type} com parâmetros {params}")    
+    warnings = []
+    print(f"Transformação solicitada: {transform_type} com parâmetros {params}")
+
     if transform_type == 'translation':
         dx = params['dx']
         dy = params['dy']
-        return apply_translation(img, new_img, dx, dy)
-    
+        result, clamped = apply_translation(img, new_img, dx, dy)
+        if clamped:
+            warnings.append(
+                f"Translação (dx={dx}, dy={dy}): pixels que mapeariam fora da imagem "
+                f"foram substituídos pelo pixel de borda mais próximo (clamping)."
+            )
+        return result, warnings
+
     if transform_type == 'rotation':
-        # Transforma theta em radianos
         angle = params['angle']
         theta = np.pi * angle / 180
-        return apply_rotation(img, new_img, theta)
-    
-    if transform_type == 'scale':
+        result, clamped = apply_rotation(img, new_img, theta)
+        if clamped:
+            warnings.append(
+                f"Rotação ({angle}°): pixels dos cantos que mapeariam fora da imagem "
+                f"foram substituídos pelo pixel de borda mais próximo (clamping)."
+            )
+        return result, warnings
 
+    if transform_type == 'scale':
         sx = params['sx']
         sy = params['sy']
-        return apply_scale(img, new_img, sx, sy)
-    
+        result, clamped = apply_scale(img, new_img, sx, sy)
+        if clamped:
+            warnings.append(
+                f"Escala (sx={sx}, sy={sy}): pixels que mapeariam fora da imagem "
+                f"foram substituídos pelo pixel de borda mais próximo (clamping)."
+            )
+        return result, warnings
+
     if transform_type == 'inverse':
-        return f_inv(img)
+        return f_inv(img), warnings
 
     if transform_type == 'gamma':
-        return f_gamma(img, params['gamma'])    
+        return f_gamma(img, params['gamma']), warnings
 
     if transform_type == 'contrast':
         a = params['a']
         b = params['b']
         c = params['c']
         d = params['d']
-
-        return f_mod(img, a=a, b=b, c=c, d=d)
+        return f_mod(img, a=a, b=b, c=c, d=d), warnings
 
     if transform_type == 'creative':
         media = params.get('media', 128)
         sigma = params.get('sigma', 30)
-        return f_mod_sigmoid(img, mu=media, sigma=sigma)
-    
+        return f_mod_sigmoid(img, mu=media, sigma=sigma), warnings
 
-    return new_img
+    return new_img, warnings
     

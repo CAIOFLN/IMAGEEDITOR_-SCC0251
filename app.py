@@ -36,12 +36,14 @@ def process_image():
         print(img_array.shape)
         
         # Aplica cada transformação da pipeline
+        all_warnings = []
         for transform in pipeline:
             transform_type = transform['type']
             params = transform['params']
             print(f"Aplicando transformação: {transform_type} com params {params}")
-            new_img = photoshop.transform_image(img_array, transform_type, params)
+            new_img, step_warnings = photoshop.transform_image(img_array, transform_type, params)
             img_array = new_img
+            all_warnings.extend(step_warnings)
 
 
         # Garante tipo uint8 antes de salvar
@@ -55,7 +57,8 @@ def process_image():
 
         return jsonify({
             'success': True,
-            'image': f'data:image/jpeg;base64,{img_str}'
+            'image': f'data:image/jpeg;base64,{img_str}',
+            'warnings': all_warnings
         })
 
     except Exception as e:
