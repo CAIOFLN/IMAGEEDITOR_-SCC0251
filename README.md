@@ -1,5 +1,4 @@
 # IMAGE EDITOR - SCC0251
-**Processamento de Imagens — Caio Florentin de Oliveira (NUSP: 14562921)**
 
 ## Como executar
 
