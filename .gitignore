@@ -1,2 +1,29 @@
-.claude/
-CLAUDE.md 
+# Claude Code
+.claude
+CLAUDE.md
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/
+.venv/
+
+# Dev artifacts deste projeto
+debug_output.jpg
+debug_curves/
+comparisons/
+
+# LaTeX build artifacts
+*.aux
+*.log
+*.out
+*.pdf
+
+# Imagens de teste locais
+*.jpg
+*.jpeg
+*.png
+*.webp
+!front/**
