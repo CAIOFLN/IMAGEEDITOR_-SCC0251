@@ -1,3 +1,14 @@
+# Nome: Caio Florentin de Oliveira | NUSP: 14562921
+# Curso: SCC0251 - Processamento de Imagens
+# Ano/Semestre: 2026/1
+# Trabalho 01: meu primeiro Software Genérico de Edição de Imagens
+#
+# Descrição: Este módulo implementa todas as transformações de imagem do editor.
+# A função de entrada é transform_image(), chamada pelo servidor Flask (app.py).
+# Transformações geométricas usam mapeamento inverso com matrizes homogêneas 3x3.
+# Transformações de intensidade operam diretamente sobre os valores dos pixels.
+
+
 import imageio.v3 as iio
 import matplotlib
 matplotlib.use('Agg')
@@ -7,56 +18,68 @@ from datetime import datetime
 from pathlib import Path
 
 
+# --- Matrizes inversas para mapeamento inverso ---
+# No mapeamento inverso, percorremos a imagem de saída e, para cada pixel (x,y),
+# aplicamos M^{-1} para encontrar a posição de origem (x', y') na imagem original.
+
 def inv_translation_matrix(ti, tj):
+    # Matriz inversa de translação: desloca (x,y) de volta em (-ti, -tj)
     return np.array([[1, 0, -ti],
             [0, 1, -tj],
             [0, 0, 1]])
 
 def inv_rot_matrix(theta):
+    # Matriz inversa de rotação por ângulo theta (transposta da matriz direta)
     return np.array([[np.cos(theta), np.sin(theta), 0],
             [-np.sin(theta), np.cos(theta), 0],
             [0, 0, 1]])
 
 def inv_scale_matrix(si, sj):
+    # Matriz inversa de escala: divide as coordenadas pelos fatores de escala
     return np.array([[1.0 / si, 0, 0],
             [0, 1.0 / sj, 0],
             [0, 0, 1]] )
 
+# --- Transformações de Intensidade ---
+# Cada função opera pixel a pixel sobre os valores de intensidade (0–255).
+# Os três canais RGB são processados de forma independente, exceto em f_threshold.
+
 def f_inv(light):
-    return 255-light    
+    # Inversão: f(x) = 255 - x  
+    return 255-light
 
 def f_log(light):
+    # Compressão logarítmica: f(x) = log(x+1) / log(256) * 255
     img = np.log(light.astype(float)+1)
     img = img * 255/np.log(255+1)
     return img.astype(np.uint8)
 
 def f_gamma(light, gamma=2.2):
+    # Correção de gama: f(x) = x^(1/γ) * 255 / 255^(1/γ)
     img = light.astype(float)**(1/gamma)
     img = img * 255/(255**(1/gamma))
     return img.astype(np.uint8)
 
 def f_threshold(img, L=128):
+    # Limiarização criativa: mantém pixels com luminância > L, zera os demais
     gray = (0.299 * img[:, :, 0] + 0.587 * img[:, :, 1] + 0.114 * img[:, :, 2])
     mask = (gray > L)[:, :, np.newaxis]
     return np.where(mask, img, 0).astype(np.uint8)
 
+
+## Salva a imagem  da função de modulação de contraste na pasta debug_curves para análise posterior
 def save_f_mod_curve(a, b, c, d):
     # Create an array for input values (0 to 255)
     x = np.arange(256, dtype=float)
-    
     # Initialize an array to store the output (y values)
     y = np.zeros_like(x)
-    
     # Apply the piecewise transformation:
     # For x < a: linear from (0, 0) to (a, c)
     y[x < a] = x[x < a] * (c / a)
-    
     # For a <= x < b: linear from (a, c) to (b, d)
     y[(x >= a) & (x < b)] = ((x[(x >= a) & (x < b)] - a) * ((d - c) / (b - a)) + c)
-    
     # For x >= b: linear from (b, d) to (255, 255)
     y[x >= b] = ((x[x >= b] - b) * (255 - d) / (255 - b)) + d
-    
     # Define output directory and file path
     output_dir = Path(__file__).resolve().parent / "debug_curves"
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -83,6 +106,11 @@ def save_f_mod_curve(a, b, c, d):
     print(f"Curva f_mod salva em: {output_file}")
 
 def f_mod(img, a=30, b=200, c=0, d=255):
+    # Modulação de contraste com transformação linear por partes.
+    # Três segmentos lineares definidos por quatro pontos de controle (a, b, c, d):
+    #   [0, a]   → [0, c]      (segmento de sombras)
+    #   [a, b]   → [c, d]      (segmento de meios-tons — onde o contraste é ajustado)
+    #   [b, 255] → [d, 255]    (segmento de realces)
     try:
         img_float = img.astype(float)
         # For z < a, the transformation is linear from (0, 0) to (a, c)
@@ -102,7 +130,15 @@ def f_mod(img, a=30, b=200, c=0, d=255):
 
 
 
+# --- Transformações Geométricas ---
+# Todas usam mapeamento inverso: para cada pixel (x,y) da saída, aplica-se
+# a matriz M^{-1} para encontrar (x', y') na imagem original.
+# Se (x', y') cair fora dos limites, aplica-se border clamping (replica borda),
+# evitando pixels vazios conforme exigido pelo enunciado.
+
 def apply_translation(img, new_img, dx, dy):
+    # Desloca a imagem (dx, dy) pixels. A matriz inversa subtrai o deslocamento,
+    # buscando o pixel de origem em (x - dx, y - dy).
     print(f"Aplicando translação: dx={dx}, dy={dy}")
     print(f"Imagem shape: {img.shape}")
     h, w, _ = img.shape
@@ -116,6 +152,7 @@ def apply_translation(img, new_img, dx, dy):
             x_new = int(p_new[0])
             y_new = int(p_new[1])
 
+            # Avisa se o pixel de origem está fora dos limites da imagem original, mas aplica clamping para evitar pixels vazios
             if not (0 <= x_new < w and 0 <= y_new < h):
                 clamped = True
             x_src = np.clip(x_new, 0, w - 1)
@@ -124,6 +161,8 @@ def apply_translation(img, new_img, dx, dy):
     return new_img, clamped
 
 def apply_rotation(img, new_img, theta):
+    # Rotaciona a imagem em torno do seu centro geométrico (cx, cy).
+    # A matriz composta é: T^{-1}(-cx,-cy) @ R^{-1}(theta) @ T^{-1}(cx,cy)
     print(f"Aplicando rotação: theta={theta} radianos")
     print(f"Imagem shape: {img.shape}")
     h, w, _ = img.shape
@@ -140,6 +179,7 @@ def apply_rotation(img, new_img, theta):
 
             x_new = int(p_new[0])
             y_new = int(p_new[1])
+            # Avisa se o pixel de origem está fora dos limites da imagem original, mas aplica clamping para evitar pixels vazios
 
             if not (0 <= x_new < w and 0 <= y_new < h):
                 clamped = True
@@ -149,6 +189,9 @@ def apply_rotation(img, new_img, theta):
     return new_img, clamped
 
 def apply_scale(img, new_img, sx, sy):
+    # Redimensiona a imagem em relação ao centro geométrico (cx, cy).
+    # A matriz composta é: T^{-1}(-cx,-cy) @ S^{-1}(sx,sy) @ T^{-1}(cx,cy)
+    # sx, sy < 1 → afasta (bordas aparecem); sx, sy > 1 → aproxima (crop)
     print(f"Aplicando escala: sx={sx}, sy={sy}")
     print(f"Imagem shape: {img.shape}")
     h, w, _ = img.shape
@@ -167,6 +210,7 @@ def apply_scale(img, new_img, sx, sy):
 
             x_new = int(p_new[0])
             y_new = int(p_new[1])
+            # Avisa se o pixel de origem está fora dos limites da imagem original, mas aplica clamping para evitar pixels vazios
 
             if not (0 <= x_new < w and 0 <= y_new < h):
                 clamped = True
@@ -181,8 +225,12 @@ def apply_scale(img, new_img, sx, sy):
 
 
 
-## Essa é a função principal, que recebe de app.py a imagem e uma transformação com os respectivos parametros
+# --- Função principal ---
+
 def transform_image(img, transform_type, params):
+    # Ponto de entrada chamado por app.py para cada etapa do pipeline.
+    # Recebe a imagem como array NumPy, o tipo de transformação e seus parâmetros.
+    # Retorna (imagem_transformada, lista_de_avisos).
     new_img = np.zeros_like(img)
     warnings = []
     print(f"Transformação solicitada: {transform_type} com parâmetros {params}")
