@@ -32,7 +32,6 @@ def process_image():
         # Decodifica a imagem recebida em base64
         image_bytes = base64.b64decode(image_data.split(',')[1])
         img_array = iio.imread(image_bytes)
-        # O front está passando como jpeg, que não tem canal alfa, mas o backend espera RGBA. Se vier RGBA, remove o canal alfa.
         print(img_array.shape)
         
         # Aplica cada transformação da pipeline

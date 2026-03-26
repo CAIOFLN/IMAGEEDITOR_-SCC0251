@@ -164,7 +164,7 @@ const configs = {
   gamma: {
     title: 'CORREÇÃO GAMA',
     render: () => `
-      <div class="transform-desc">f(x) = c · x^γ &nbsp;(c = 255 / 255^γ)<br>γ &lt; 1 → clareia &nbsp;|&nbsp; γ &gt; 1 → escurece</div>
+      <div class="transform-desc">f(x) = c · x^γ &nbsp;(c = 255 / 255^γ)<br>γ &lt; 1 → escurece &nbsp;|&nbsp; γ &gt; 1 → clareia</div>
       <div class="control-field">
         <label>γ (GAMMA) <span class="val" id="gammaVal">1.0</span></label>
         <input type="range" class="slider" id="gamma" min="1" max="50" value="10">
@@ -210,27 +210,21 @@ const configs = {
     color:  '#3b82f6',
   },
   creative: {
-    title: 'TRANSFORMAÇÃO CRIATIVA',
+    title: 'LIMIAR',
     render: () => `
-      <div class="transform-desc">out_pixel = 1 / (1 + e<sup>-(x - μ)/σ</sup>)<br><br>μ controla o centro da curva e σ controla a inclinação.</div>
+      <div class="transform-desc">T(z) = 1 se z &gt; L, 0 caso contrário<br><br>L define o valor de corte da intensidade.</div>
       <div class="inline-inputs">
         <div class="control-field">
-          <label>μ — MÉDIA <span class="val" id="sigmoidMediaVal">128</span></label>
-          <input type="range" class="slider" id="sigmoidMedia" min="0" max="255" value="128">
-        </div>
-        <div class="control-field">
-          <label>σ — SIGMA <span class="val" id="sigmoidSigmaVal">30</span></label>
-          <input type="range" class="slider" id="sigmoidSigma" min="1" max="100" value="30">
+          <label>L — LIMIAR <span class="val" id="thresholdLVal">128</span></label>
+          <input type="range" class="slider" id="thresholdL" min="0" max="255" value="128">
         </div>
       </div>`,
     bind: () => {
-      const media = document.getElementById('sigmoidMedia');
-      const sigma = document.getElementById('sigmoidSigma');
-      media.addEventListener('input', () => { document.getElementById('sigmoidMediaVal').textContent = media.value; });
-      sigma.addEventListener('input', () => { document.getElementById('sigmoidSigmaVal').textContent = sigma.value; });
+      const L = document.getElementById('thresholdL');
+      L.addEventListener('input', () => { document.getElementById('thresholdLVal').textContent = L.value; });
     },
-    params: () => ({ media: +document.getElementById('sigmoidMedia').value, sigma: +document.getElementById('sigmoidSigma').value }),
-    label:  (p) => `μ=${p.media} σ=${p.sigma}`,
+    params: () => ({ L: +document.getElementById('thresholdL').value }),
+    label:  (p) => `L=${p.L}`,
     color:  '#ec4899',
   },
 };
@@ -254,7 +248,7 @@ botaoAdicionarPipeline.addEventListener('click', () => {
 const typeNames = {
   translation: 'Translação', rotation: 'Rotação',  scale:    'Escala',
   inverse:     'Inversa',    log:      'Log',        gamma:    'Gama',
-  contrast:    'Contraste',  creative: 'Criativa',
+  contrast:    'Contraste',  creative: 'Limiar',
 };
 
 // Renderiza a lista de transformações na pipeline

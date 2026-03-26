@@ -35,7 +35,10 @@ def f_gamma(light, gamma=2.2):
     img = img * 255/(255**(1/gamma))
     return img.astype(np.uint8)
 
-
+def f_threshold(img, L=128):
+    gray = (0.299 * img[:, :, 0] + 0.587 * img[:, :, 1] + 0.114 * img[:, :, 2])
+    mask = (gray > L)[:, :, np.newaxis]
+    return np.where(mask, img, 0).astype(np.uint8)
 
 def save_f_mod_curve(a, b, c, d):
     # Create an array for input values (0 to 255)
@@ -96,50 +99,7 @@ def f_mod(img, a=30, b=200, c=0, d=255):
         return img
     
 
-def save_f_mod_sigmoid_curve(mu=128, sigma=30):
-    # Create an array for input values (0 to 255)
-    x = np.arange(256, dtype=float)
-    
-    # Apply the sigmoidal transformation
-    y = 1 / (1 + np.exp(-(x - mu) / sigma))
-    y = np.clip(y * 255, 0, 255)  # Scale back to 0-255 range
 
-    # Define output directory and file path
-    output_dir = Path(__file__).resolve().parent / "debug_curves"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
-    output_file = output_dir / f"f_mod_sigmoid_mu{mu}_sigma{sigma}_{timestamp}.png"
-
-    # Plot the transformation curve
-    fig, ax = plt.subplots(figsize=(6, 4))
-    ax.plot(x, y, color='tab:blue', linewidth=2, label='Sigmoidal Transformation')
-    ax.set_title(f"Sigmoidal Transformation: mu={mu}, sigma={sigma}")
-    ax.set_xlabel("Input intensity")
-    ax.set_ylabel("Output intensity")
-    ax.set_xlim(0, 255)
-    ax.set_ylim(0, 255)
-    ax.grid(alpha=0.3)
-    ax.legend(loc='best')
-
-    # Save the plot and close the figure
-    fig.tight_layout()
-    fig.savefig(output_file, dpi=120)
-    plt.close(fig)
-
-    # Print the save location
-    print(f"Curva sigmoidal salva em: {output_file}")
-
-
-def f_mod_sigmoid(img, mu=128, sigma=30):
-    try:
-        img_float = img.astype(float)
-        img_float = 1 / (1 + np.exp(-(img_float - mu) / sigma))
-        img_float = np.clip(img_float * 255, 0, 255)
-        save_f_mod_sigmoid_curve(mu, sigma)
-        return img_float.astype(np.uint8)
-    except Exception as error:
-        print(f"Error during sigmoidal transformation: {error}")
-        return img
 
 
 def apply_translation(img, new_img, dx, dy):
@@ -216,6 +176,12 @@ def apply_scale(img, new_img, sx, sy):
 
     return new_img, clamped
 
+
+
+
+
+
+## Essa é a função principal, que recebe de app.py a imagem e uma transformação com os respectivos parametros
 def transform_image(img, transform_type, params):
     new_img = np.zeros_like(img)
     warnings = []
@@ -257,6 +223,9 @@ def transform_image(img, transform_type, params):
     if transform_type == 'inverse':
         return f_inv(img), warnings
 
+    if transform_type == 'log':
+        return f_log(img), warnings
+
     if transform_type == 'gamma':
         return f_gamma(img, params['gamma']), warnings
 
@@ -268,9 +237,8 @@ def transform_image(img, transform_type, params):
         return f_mod(img, a=a, b=b, c=c, d=d), warnings
 
     if transform_type == 'creative':
-        media = params.get('media', 128)
-        sigma = params.get('sigma', 30)
-        return f_mod_sigmoid(img, mu=media, sigma=sigma), warnings
+        L = params.get('L', 128)
+        return f_threshold(img, L=L), warnings
 
     return new_img, warnings
     
